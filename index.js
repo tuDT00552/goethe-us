@@ -15,7 +15,7 @@ const dbConfig = {
     password: 'Agglbtpg123',
     database: 'herokuap_tudt',
     waitForConnections: true,
-    connectionLimit: 100,
+    connectionLimit: 10000,
     queueLimit: 0,
     connectTimeout: 180000
 };
@@ -116,6 +116,105 @@ app.get('/api/users/delete', async (req, res) => {
         res.status(500).json({ error: 'Lỗi kết nối cơ sở dữ liệu' });
     }
 });
+
+
+// ------------------------------------------------------------------------------------------------
+
+
+app.get('/api/users-reg', async (req, res) => {
+    try {
+      const bot = req.query.bot; // Lấy giá trị của tham số bot từ request query.
+      const isActive = req.query.isActive || 1;
+  
+      let query;
+      let queryParams;
+  
+      if (bot) {
+        // Nếu có tham số bot, sử dụng LIKE để tìm kiếm trong cột bot.
+        query = 'SELECT * FROM users1 WHERE isActive = ? AND bot LIKE ? ORDER BY startDate ASC, endDate ASC';
+        queryParams = [isActive, `%${bot}%`];
+      } else {
+        // Nếu không có tham số bot, truy vấn tất cả dữ liệu.
+        query = 'SELECT * FROM users1 WHERE isActive = ? ORDER BY startDate ASC, endDate ASC';
+        queryParams = [isActive];
+      }
+  
+      const results = await queryWithRetry(query, queryParams);
+  
+      const processedResults = results.map(row => ({
+        ...row,
+        isActive: row.isActive === 1 ? true : false,
+      }));
+  
+      res.json(processedResults);
+    } catch (error) {
+      console.error('Lỗi truy vấn: ' + error.stack);
+      res.status(500).json({ error: 'Lỗi truy vấn cơ sở dữ liệu' });
+    }
+  });
+  
+  
+  
+  app.get('/api/users-reg/update', async (req, res) => {
+    const { id, isActive } = req.query;
+  
+    if (!id || !isActive || (isActive !== '0' && isActive !== '1')) {
+      return res.status(400).json({ error: 'Thiếu tham số hoặc tham số không hợp lệ' });
+    }
+  
+    try {
+      const connection = mysql.createConnection(dbConfig);
+  
+      connection.query('UPDATE users1 SET isActive = ? WHERE id = ?', [isActive, id], (error, results) => {
+        connection.end();
+  
+        if (error) {
+          console.error('Lỗi cập nhật: ' + error.stack);
+          res.status(500).json({ error: 'Lỗi cập nhật cơ sở dữ liệu' });
+        } else {
+          if (results.affectedRows === 1) {
+            res.json({ success: 'Cập nhật thành công' });
+          } else {
+            res.status(404).json({ error: 'Không tìm thấy người dùng với id đã cho' });
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Lỗi kết nối: ' + error.stack);
+      res.status(500).json({ error: 'Lỗi kết nối cơ sở dữ liệu' });
+    }
+  });
+  
+  
+  app.get('/api/users-reg/delete', async (req, res) => {
+    const { id } = req.query;
+  
+    if (!id) {
+      return res.status(400).json({ error: 'Thiếu tham số id' });
+    }
+  
+    try {
+      const connection = mysql.createConnection(dbConfig);
+  
+      connection.query('DELETE FROM users1 WHERE id = ?', [id], (error, results) => {
+        connection.end();
+  
+        if (error) {
+          console.error('Lỗi xoá: ' + error.stack);
+          res.status(500).json({ error: 'Lỗi xoá cơ sở dữ liệu' });
+        } else {
+          if (results.affectedRows === 1) {
+            res.json({ success: 'Xoá thành công' });
+          } else {
+            res.status(404).json({ error: 'Không tìm thấy người dùng với id đã cho' });
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Lỗi kết nối: ' + error.stack);
+      res.status(500).json({ error: 'Lỗi kết nối cơ sở dữ liệu' });
+    }
+  });
 
 
 app.listen(3000, () => {
