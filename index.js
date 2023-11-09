@@ -221,7 +221,7 @@ app.get('/api/get-url', async (req, res) => {
     const results = await queryWithRetry(query);
 
     if (results.length > 0) {
-      const url = results[0].url;
+      const url = results[0];
       res.json(url);
     } else {
       res.status(404).json({ error: 'Không tìm thấy bản ghi nào trong bảng "urls"' });
