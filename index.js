@@ -35,7 +35,7 @@ async function queryWithRetry(query, params) {
 
 app.get('/api/users', async (req, res) => {
   try {
-    const { isActive } = req.query || 1;
+    const isActive = req.query.isActive || 1;
     const results = await queryWithRetry(
       'SELECT * FROM users WHERE isActive = ? ORDER BY startDate ASC, endDate ASC',
       [isActive]
