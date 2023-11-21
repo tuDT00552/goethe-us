@@ -49,7 +49,7 @@ app.get('/api/users', async (req, res) => {
     res.json(processedResults);
   } catch (error) {
     console.error('Lỗi truy vấn: ' + error.stack);
-    res.status(500).json({ error: 'Lỗi truy vấn cơ sở dữ liệu' });
+    res.status(200).json({ error: 'Lỗi truy vấn cơ sở dữ liệu' });
   }
 });
 
@@ -58,7 +58,7 @@ app.get('/api/users/update', async (req, res) => {
   const { id, isActive } = req.query;
 
   if (!id || !isActive || (isActive !== '0' && isActive !== '1')) {
-    return res.status(400).json({ error: 'Thiếu tham số hoặc tham số không hợp lệ' });
+    return res.status(200).json({ error: 'Thiếu tham số hoặc tham số không hợp lệ' });
   }
 
   try {
@@ -69,18 +69,18 @@ app.get('/api/users/update', async (req, res) => {
 
       if (error) {
         console.error('Lỗi cập nhật: ' + error.stack);
-        res.status(500).json({ error: 'Lỗi cập nhật cơ sở dữ liệu' });
+        res.status(200).json({ error: 'Lỗi cập nhật cơ sở dữ liệu' });
       } else {
         if (results.affectedRows === 1) {
           res.json({ success: 'Cập nhật thành công' });
         } else {
-          res.status(404).json({ error: 'Không tìm thấy người dùng với id đã cho' });
+          res.status(200).json({ error: 'Không tìm thấy người dùng với id đã cho' });
         }
       }
     });
   } catch (error) {
     console.error('Lỗi kết nối: ' + error.stack);
-    res.status(500).json({ error: 'Lỗi kết nối cơ sở dữ liệu' });
+    res.status(200).json({ error: 'Lỗi kết nối cơ sở dữ liệu' });
   }
 });
 
@@ -89,7 +89,7 @@ app.get('/api/users/delete', async (req, res) => {
   const { id } = req.query;
 
   if (!id) {
-    return res.status(400).json({ error: 'Thiếu tham số id' });
+    return res.status(200).json({ error: 'Thiếu tham số id' });
   }
 
   try {
@@ -100,18 +100,18 @@ app.get('/api/users/delete', async (req, res) => {
 
       if (error) {
         console.error('Lỗi xoá: ' + error.stack);
-        res.status(500).json({ error: 'Lỗi xoá cơ sở dữ liệu' });
+        res.status(200).json({ error: 'Lỗi xoá cơ sở dữ liệu' });
       } else {
         if (results.affectedRows === 1) {
           res.json({ success: 'Xoá thành công' });
         } else {
-          res.status(404).json({ error: 'Không tìm thấy người dùng với id đã cho' });
+          res.status(200).json({ error: 'Không tìm thấy người dùng với id đã cho' });
         }
       }
     });
   } catch (error) {
     console.error('Lỗi kết nối: ' + error.stack);
-    res.status(500).json({ error: 'Lỗi kết nối cơ sở dữ liệu' });
+    res.status(200).json({ error: 'Lỗi kết nối cơ sở dữ liệu' });
   }
 });
 
@@ -147,7 +147,7 @@ app.get('/api/users-reg', async (req, res) => {
     res.json(processedResults);
   } catch (error) {
     console.error('Lỗi truy vấn: ' + error.stack);
-    res.status(500).json({ error: 'Lỗi truy vấn cơ sở dữ liệu' });
+    res.status(200).json({ error: 'Lỗi truy vấn cơ sở dữ liệu' });
   }
 });
 
@@ -161,11 +161,11 @@ app.get('/api/get-url', async (req, res) => {
       const url = results[0].url;
       res.json(url);
     } else {
-      res.status(404).json({ error: 'Không tìm thấy bản ghi nào trong bảng "urls"' });
+      res.status(200).json({ error: 'Không tìm thấy bản ghi nào trong bảng "urls"' });
     }
   } catch (error) {
     console.error('Lỗi truy vấn: ' + error.stack);
-    res.status(500).json({ error: 'Lỗi truy vấn cơ sở dữ liệu' });
+    res.status(200).json({ error: 'Lỗi truy vấn cơ sở dữ liệu' });
   }
 });
 
