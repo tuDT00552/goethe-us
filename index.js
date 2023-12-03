@@ -181,9 +181,10 @@ app.get('/api/get-one', async (req, res) => {
       WHERE id = ?
     `, [processedResult.id]);
 
+    const randomTimeout = Math.floor(Math.random() * (40000 - 20000 + 1)) + 20000;
     setTimeout(() => {
       resetIsProcess(processedResult.id);
-    }, 10000);
+    }, randomTimeout);
 
     res.json(processedResult);
   } catch (error) {
