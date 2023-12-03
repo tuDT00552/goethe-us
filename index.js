@@ -151,6 +151,57 @@ app.get('/api/users-reg', async (req, res) => {
   }
 });
 
+// ----------------------------------------------
+
+app.get('/api/get-one', async (req, res) => {
+  try {
+    const results = await queryWithRetry(`
+      SELECT * 
+      FROM herokuap_tudt.users
+      WHERE isReg = true AND isActive = true AND isProcess = false
+      ORDER BY sort ASC
+      LIMIT 1
+    `);
+
+    if (results.length === 0) {
+      res.json(null);
+      return;
+    }
+
+    const processedResult = {
+      ...results[0],
+      isActive: results[0].isActive === 1 ? true : false,
+      isReg: results[0].isReg === 1 ? true : false,
+      isProcess: results[0].isProcess === 1 ? true : false,
+    };
+
+    await queryWithRetry(`
+      UPDATE herokuap_tudt.users
+      SET isProcess = true
+      WHERE id = ?
+    `, [processedResult.id]);
+
+    setTimeout(() => {
+      resetIsProcess(processedResult.id);
+    }, 10000);
+
+    res.json(processedResult);
+  } catch (error) {
+    console.error('Lỗi truy vấn hoặc cập nhật: ' + error.stack);
+    res.status(500).json({ error: 'Lỗi truy vấn hoặc cập nhật cơ sở dữ liệu' });
+  }
+});
+
+async function resetIsProcess(id) {
+  await queryWithRetry(`
+    UPDATE herokuap_tudt.users
+    SET isProcess = false
+    WHERE id = ?
+  `, [id]);
+}
+
+// -----------------------------------------------
+
 app.get('/api/get-url', async (req, res) => {
   try {
     const query = 'SELECT * FROM urls LIMIT 1';
