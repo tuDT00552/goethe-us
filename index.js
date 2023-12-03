@@ -157,17 +157,10 @@ const getRandomTimeout = () => {
   return Math.floor(Math.random() * (40000 - 20000 + 1) + 20000);
 };
 
-function generateUniqueKey() {
-  const timestamp = new Date().getTime();
-  const random = Math.floor(Math.random() * 1000);
-  const uniqueKey = `${timestamp}-${random}`;
-  return uniqueKey;
-}
-
 const resetRequestKey = async (id) => {
   try {
     const resetConnection = mysql.createConnection(dbConfig);
-    const query = 'UPDATE your_table SET isProcess = false, request_key = null WHERE id = ?';
+    const query = 'UPDATE users SET isProcess = false, request_key = null WHERE id = ?';
     const [result] = await queryWithRetry(query, [id]);
     resetConnection.end();
     return result;
@@ -180,7 +173,7 @@ app.get('/api/get-one', async (req, res) => {
   try {
     const connection = mysql.createConnection(dbConfig);
 
-    const requestKey = generateUniqueKey();
+    const requestKey = Math.floor(Math.random() * 10000);
 
     const updateQuery = `
       UPDATE users
@@ -215,7 +208,6 @@ app.get('/api/get-one', async (req, res) => {
           const selectedRecord = selectResults[0];
           res.json(selectedRecord);
 
-          // Cập nhật lại isProcess sau một khoảng thời gian để tái sử dụng bản ghi
           setTimeout(() => {
             resetRequestKey(selectedRecord.id);
           }, getRandomTimeout());
