@@ -153,53 +153,70 @@ app.get('/api/users-reg', async (req, res) => {
 
 // ----------------------------------------------
 
+const getRandomTimeout = () => {
+  // Trả về một thời gian ngẫu nhiên trong khoảng từ 20 đến 40 giây
+  return Math.floor(Math.random() * (40000 - 20000 + 1) + 20000);
+};
+
 app.get('/api/get-one', async (req, res) => {
   try {
-    const results = await queryWithRetry(`
-      SELECT * 
-      FROM herokuap_tudt.users
-      WHERE isReg = true AND isActive = true AND isProcess = false
-      ORDER BY sort ASC
-      LIMIT 1
-    `);
+    const connection = mysql.createConnection(dbConfig);
 
-    if (results.length === 0) {
-      res.json(null);
-      return;
-    }
-
-    const processedResult = {
-      ...results[0],
-      isActive: results[0].isActive === 1 ? true : false,
-      isReg: results[0].isReg === 1 ? true : false,
-      isProcess: results[0].isProcess === 1 ? true : false,
-    };
-
-    await queryWithRetry(`
-      UPDATE herokuap_tudt.users
+    const updateQuery = `
+      UPDATE users
       SET isProcess = true
-      WHERE id = ?
-    `, [processedResult.id]);
+      WHERE isReg = true AND isActive = true AND isProcess = false
+      ORDER BY sort
+      LIMIT 1;
+    `;
 
-    const randomTimeout = Math.floor(Math.random() * (40000 - 20000 + 1)) + 20000;
-    setTimeout(() => {
-      resetIsProcess(processedResult.id);
-    }, randomTimeout);
+    connection.query(updateQuery, async (updateError, updateResults) => {
+      if (updateError) {
+        connection.end();
+        console.error('Lỗi truy vấn UPDATE: ' + updateError.stack);
+        return res.status(500).json({ error: 'Lỗi truy vấn UPDATE cơ sở dữ liệu' });
+      }
 
-    res.json(processedResult);
+      // Kiểm tra xem có bản ghi nào được cập nhật không
+      const updatedRows = updateResults.affectedRows;
+
+      if (updatedRows === 1) {
+        const selectQuery = `
+          SELECT * FROM users WHERE isProcess = true LIMIT 1;
+        `;
+
+        connection.query(selectQuery, async (selectError, selectResults) => {
+          connection.end();
+
+          if (selectError) {
+            console.error('Lỗi truy vấn SELECT: ' + selectError.stack);
+            return res.status(500).json({ error: 'Lỗi truy vấn SELECT cơ sở dữ liệu' });
+          }
+
+          // Lấy bản ghi đã được cập nhật và trả về
+          const selectedRecord = selectResults[0];
+          res.json(selectedRecord);
+
+          // Cập nhật lại isProcess sau một khoảng thời gian để tái sử dụng bản ghi
+          setTimeout(() => {
+            const resetConnection = mysql.createConnection(dbConfig);
+            resetConnection.query('UPDATE users SET isProcess = false WHERE id = ?', [selectedRecord.id]);
+            resetConnection.end();
+          }, getRandomTimeout());
+        });
+      } else {
+        // Nếu không có bản ghi nào được cập nhật, đó có thể là do không có bản ghi nào thoả mãn điều kiện
+        connection.end();
+        res.json(null);
+      }
+    });
   } catch (error) {
-    console.error('Lỗi truy vấn hoặc cập nhật: ' + error.stack);
-    res.status(500).json({ error: 'Lỗi truy vấn hoặc cập nhật cơ sở dữ liệu' });
+    console.error('Lỗi kết nối: ' + error.stack);
+    res.status(500).json({ error: 'Lỗi kết nối cơ sở dữ liệu' });
   }
 });
 
-async function resetIsProcess(id) {
-  await queryWithRetry(`
-    UPDATE herokuap_tudt.users
-    SET isProcess = false
-    WHERE id = ?
-  `, [id]);
-}
+
 
 // -----------------------------------------------
 
