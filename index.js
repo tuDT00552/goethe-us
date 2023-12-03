@@ -162,30 +162,31 @@ app.get('/api/get-one', async (req, res) => {
   try {
     const connection = mysql.createConnection(dbConfig);
 
+    const requestKey = generateUniqueKey(); // Hàm để sinh khoá xác thực duy nhất
+
     const updateQuery = `
       UPDATE users
-      SET isProcess = true
+      SET isProcess = true, request_key = ?
       WHERE isReg = true AND isActive = true AND isProcess = false
       ORDER BY sort
       LIMIT 1;
     `;
 
-    connection.query(updateQuery, async (updateError, updateResults) => {
+    connection.query(updateQuery, [requestKey], async (updateError, updateResults) => {
       if (updateError) {
         connection.end();
         console.error('Lỗi truy vấn UPDATE: ' + updateError.stack);
         return res.status(500).json({ error: 'Lỗi truy vấn UPDATE cơ sở dữ liệu' });
       }
 
-      // Kiểm tra xem có bản ghi nào được cập nhật không
       const updatedRows = updateResults.affectedRows;
 
       if (updatedRows === 1) {
         const selectQuery = `
-          SELECT * FROM users WHERE isProcess = true LIMIT 1;
+          SELECT * FROM users WHERE isProcess = true AND request_key = ? LIMIT 1;
         `;
 
-        connection.query(selectQuery, async (selectError, selectResults) => {
+        connection.query(selectQuery, [requestKey], async (selectError, selectResults) => {
           connection.end();
 
           if (selectError) {
@@ -193,7 +194,6 @@ app.get('/api/get-one', async (req, res) => {
             return res.status(500).json({ error: 'Lỗi truy vấn SELECT cơ sở dữ liệu' });
           }
 
-          // Lấy bản ghi đã được cập nhật và trả về
           const selectedRecord = selectResults[0];
           res.json(selectedRecord);
 
@@ -205,7 +205,6 @@ app.get('/api/get-one', async (req, res) => {
           }, getRandomTimeout());
         });
       } else {
-        // Nếu không có bản ghi nào được cập nhật, đó có thể là do không có bản ghi nào thoả mãn điều kiện
         connection.end();
         res.json(null);
       }
@@ -215,8 +214,6 @@ app.get('/api/get-one', async (req, res) => {
     res.status(500).json({ error: 'Lỗi kết nối cơ sở dữ liệu' });
   }
 });
-
-
 
 // -----------------------------------------------
 
