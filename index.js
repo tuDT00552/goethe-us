@@ -154,15 +154,33 @@ app.get('/api/users-reg', async (req, res) => {
 // ----------------------------------------------
 
 const getRandomTimeout = () => {
-  // Trả về một thời gian ngẫu nhiên trong khoảng từ 20 đến 40 giây
   return Math.floor(Math.random() * (40000 - 20000 + 1) + 20000);
+};
+
+function generateUniqueKey() {
+  const timestamp = new Date().getTime();
+  const random = Math.floor(Math.random() * 1000);
+  const uniqueKey = `${timestamp}-${random}`;
+  return uniqueKey;
+}
+
+const resetRequestKey = async (id) => {
+  try {
+    const resetConnection = mysql.createConnection(dbConfig);
+    const query = 'UPDATE your_table SET isProcess = false, request_key = null WHERE id = ?';
+    const [result] = await queryWithRetry(query, [id]);
+    resetConnection.end();
+    return result;
+  } catch (error) {
+    throw error;
+  }
 };
 
 app.get('/api/get-one', async (req, res) => {
   try {
     const connection = mysql.createConnection(dbConfig);
 
-    const requestKey = generateUniqueKey(); // Hàm để sinh khoá xác thực duy nhất
+    const requestKey = generateUniqueKey();
 
     const updateQuery = `
       UPDATE users
@@ -199,9 +217,7 @@ app.get('/api/get-one', async (req, res) => {
 
           // Cập nhật lại isProcess sau một khoảng thời gian để tái sử dụng bản ghi
           setTimeout(() => {
-            const resetConnection = mysql.createConnection(dbConfig);
-            resetConnection.query('UPDATE users SET isProcess = false WHERE id = ?', [selectedRecord.id]);
-            resetConnection.end();
+            resetRequestKey(selectedRecord.id);
           }, getRandomTimeout());
         });
       } else {
@@ -211,7 +227,7 @@ app.get('/api/get-one', async (req, res) => {
     });
   } catch (error) {
     console.error('Lỗi kết nối: ' + error.stack);
-    res.status(500).json({ error: 'Lỗi kết nối cơ sở dữ liệu' });
+    res.status(500).json({ error: error.stack });
   }
 });
 
