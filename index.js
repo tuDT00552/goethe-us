@@ -223,6 +223,60 @@ app.get('/api/get-one', async (req, res) => {
   }
 });
 
+app.get('/api/get-one-reverse', async (req, res) => {
+  try {
+    const connection = mysql.createConnection(dbConfig);
+
+    const requestKey = Math.floor(Math.random() * 10000);
+
+    const updateQuery = `
+      UPDATE users
+      SET isProcess = true, request_key = ?
+      WHERE isReg = true AND isActive = true AND isProcess = false
+      ORDER BY sort DESC
+      LIMIT 1;
+    `;
+
+    connection.query(updateQuery, [requestKey], async (updateError, updateResults) => {
+      if (updateError) {
+        connection.end();
+        console.error('Lỗi truy vấn UPDATE: ' + updateError.stack);
+        return res.status(500).json({ error: 'Lỗi truy vấn UPDATE cơ sở dữ liệu' });
+      }
+
+      const updatedRows = updateResults.affectedRows;
+
+      if (updatedRows === 1) {
+        const selectQuery = `
+          SELECT * FROM users WHERE isProcess = true AND request_key = ? LIMIT 1;
+        `;
+
+        connection.query(selectQuery, [requestKey], async (selectError, selectResults) => {
+          connection.end();
+
+          if (selectError) {
+            console.error('Lỗi truy vấn SELECT: ' + selectError.stack);
+            return res.status(500).json({ error: 'Lỗi truy vấn SELECT cơ sở dữ liệu' });
+          }
+
+          const selectedRecord = selectResults[0];
+          res.json(selectedRecord);
+
+          setTimeout(() => {
+            resetRequestKey(selectedRecord.id);
+          }, getRandomTimeout());
+        });
+      } else {
+        connection.end();
+        res.json(null);
+      }
+    });
+  } catch (error) {
+    console.error('Lỗi kết nối: ' + error.stack);
+    res.status(500).json({ error: error.stack });
+  }
+});
+
 // -----------------------------------------------
 
 app.get('/api/get-url', async (req, res) => {
