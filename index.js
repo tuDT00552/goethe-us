@@ -314,14 +314,13 @@ app.get('/api/get-one-test', async (req, res) => {
           }
 
           const selectedRecord = selectResults[0];
+          setTimeout(() => {
+            resetRequestKey(selectedRecord.id);
+          }, getRandomTimeout());
           selectedRecord.module = 'reading';
           selectedRecord.startDate = '26/01/2020';
           selectedRecord.endDate = '26/01/2026';
           res.json(selectedRecord);
-
-          // setTimeout(() => {
-          //   resetRequestKey(selectedRecord.id);
-          // }, getRandomTimeout());
         });
       } else {
         connection.end();
