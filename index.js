@@ -319,9 +319,9 @@ app.get('/api/get-one-test', async (req, res) => {
           selectedRecord.endDate = '26/01/2026';
           res.json(selectedRecord);
 
-          setTimeout(() => {
-            resetRequestKey(selectedRecord.id);
-          }, getRandomTimeout());
+          // setTimeout(() => {
+          //   resetRequestKey(selectedRecord.id);
+          // }, getRandomTimeout());
         });
       } else {
         connection.end();
