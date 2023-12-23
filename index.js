@@ -20,6 +20,9 @@ const dbConfig = {
 
 const pool = mysql.createPool(dbConfig);
 
+let userData = [];
+let countRequest = 0;
+
 async function queryWithRetry(query, params) {
   try {
     const [results] = await pool.promise().query(query, params);
@@ -153,183 +156,96 @@ app.get('/api/users-reg', async (req, res) => {
 
 // ----------------------------------------------
 
-const getRandomTimeout = () => {
-  return Math.floor(Math.random() * (40000 - 20000 + 1) + 20000);
-};
-
-const resetRequestKey = async (id) => {
+async function fetchData() {
   try {
-    const resetConnection = mysql.createConnection(dbConfig);
-    const query = 'UPDATE users SET isProcess = false, request_key = null WHERE id = ?';
-    const [result] = await queryWithRetry(query, [id]);
-    resetConnection.end();
-    return result;
-  } catch (error) {
-    throw error;
-  }
-};
-
-app.get('/api/get-one', async (req, res) => {
-  try {
-    const connection = mysql.createConnection(dbConfig);
-
-    const requestKey = Math.floor(Math.random() * 10000);
-
-    const updateQuery = `
-      UPDATE users
-      SET isProcess = true, request_key = ?
-      WHERE isReg = true AND isActive = true AND isProcess = false
-      ORDER BY sort
-      LIMIT 1;
+    const fetchDataQuery = `
+      SELECT * FROM users
+      WHERE isReg = true AND isActive = true
+      ORDER BY sort;
     `;
 
-    connection.query(updateQuery, [requestKey], async (updateError, updateResults) => {
-      if (updateError) {
-        connection.end();
-        console.error('Lỗi truy vấn UPDATE: ' + updateError.stack);
-        return res.status(500).json({ error: 'Lỗi truy vấn UPDATE cơ sở dữ liệu' });
-      }
-
-      const updatedRows = updateResults.affectedRows;
-
-      if (updatedRows === 1) {
-        const selectQuery = `
-          SELECT * FROM users WHERE isProcess = true AND request_key = ? LIMIT 1;
-        `;
-
-        connection.query(selectQuery, [requestKey], async (selectError, selectResults) => {
-          connection.end();
-
-          if (selectError) {
-            console.error('Lỗi truy vấn SELECT: ' + selectError.stack);
-            return res.status(500).json({ error: 'Lỗi truy vấn SELECT cơ sở dữ liệu' });
-          }
-
-          const selectedRecord = selectResults[0];
-          res.json(selectedRecord);
-
-          setTimeout(() => {
-            resetRequestKey(selectedRecord.id);
-          }, getRandomTimeout());
-        });
-      } else {
-        connection.end();
-        res.json(null);
-      }
-    });
+    const results = await queryWithRetry(fetchDataQuery);
+    userData = results;
+    console.log(`Fetched data at ${new Date().toLocaleTimeString()}`);
   } catch (error) {
-    console.error('Lỗi kết nối: ' + error.stack);
-    res.status(500).json({ error: error.stack });
+    console.error('Lỗi truy vấn: ' + error.stack);
+  }
+}
+
+app.get('/api/fetch-data', async (req, res) => {
+  try {
+    fetchData();
+    const numberOfRecords = userData.length;
+    res.json({ success: true, numberOfRecords });
+  } catch (error) {
+    res.status(200).json({ error: 'Lỗi truy vấn cơ sở dữ liệu' });
   }
 });
 
-app.get('/api/get-one-reverse', async (req, res) => {
+fetchData();
+setInterval(fetchData, 3600000);
+
+function findRecordToProcess(data) {
+  return data.find(record => record.isProcess === 0);
+}
+
+function resetIsProcess(data) {
+  data.forEach(record => {
+    record.isProcess = 0;
+  });
+}
+
+app.get('/api/get-one', async (req, res) => {
   try {
-    const connection = mysql.createConnection(dbConfig);
-
-    const requestKey = Math.floor(Math.random() * 10000);
-
-    const updateQuery = `
-      UPDATE users
-      SET isProcess = true, request_key = ?
-      WHERE isReg = true AND isActive = true AND isProcess = false
-      ORDER BY sort DESC
-      LIMIT 1;
-    `;
-
-    connection.query(updateQuery, [requestKey], async (updateError, updateResults) => {
-      if (updateError) {
-        connection.end();
-        console.error('Lỗi truy vấn UPDATE: ' + updateError.stack);
-        return res.status(500).json({ error: 'Lỗi truy vấn UPDATE cơ sở dữ liệu' });
-      }
-
-      const updatedRows = updateResults.affectedRows;
-
-      if (updatedRows === 1) {
-        const selectQuery = `
-          SELECT * FROM users WHERE isProcess = true AND request_key = ? LIMIT 1;
-        `;
-
-        connection.query(selectQuery, [requestKey], async (selectError, selectResults) => {
-          connection.end();
-
-          if (selectError) {
-            console.error('Lỗi truy vấn SELECT: ' + selectError.stack);
-            return res.status(500).json({ error: 'Lỗi truy vấn SELECT cơ sở dữ liệu' });
-          }
-
-          const selectedRecord = selectResults[0];
-          res.json(selectedRecord);
-
-          setTimeout(() => {
-            resetRequestKey(selectedRecord.id);
-          }, getRandomTimeout());
-        });
+    let recordToProcess = findRecordToProcess(userData);
+    if (recordToProcess) {
+      recordToProcess.isProcess = 1;
+      res.json(recordToProcess);
+    } else {
+      resetIsProcess(userData);
+      recordToProcess = findRecordToProcess(userData);
+      if (recordToProcess) {
+        recordToProcess.isProcess = 1;
+        res.json(recordToProcess);
       } else {
-        connection.end();
         res.json(null);
       }
-    });
+      countRequest++;
+    }
   } catch (error) {
-    console.error('Lỗi kết nối: ' + error.stack);
-    res.status(500).json({ error: error.stack });
+    console.error('Lỗi xử lý: ' + error.stack);
+    res.status(500).json({ error: 'Lỗi xử lý dữ liệu' });
   }
 });
 
 app.get('/api/get-one-test', async (req, res) => {
   try {
-    const connection = mysql.createConnection(dbConfig);
-
-    const requestKey = Math.floor(Math.random() * 10000);
-
-    const updateQuery = `
-      UPDATE users
-      SET isProcess = true, request_key = ?
-      WHERE isReg = true AND isActive = true AND isProcess = false
-      ORDER BY sort
-      LIMIT 1;
-    `;
-
-    connection.query(updateQuery, [requestKey], async (updateError, updateResults) => {
-      if (updateError) {
-        connection.end();
-        console.error('Lỗi truy vấn UPDATE: ' + updateError.stack);
-        return res.status(500).json({ error: 'Lỗi truy vấn UPDATE cơ sở dữ liệu' });
-      }
-
-      const updatedRows = updateResults.affectedRows;
-
-      if (updatedRows === 1) {
-        const selectQuery = `
-          SELECT * FROM users WHERE isProcess = true AND request_key = ? LIMIT 1;
-        `;
-
-        connection.query(selectQuery, [requestKey], async (selectError, selectResults) => {
-          connection.end();
-
-          if (selectError) {
-            console.error('Lỗi truy vấn SELECT: ' + selectError.stack);
-            return res.status(500).json({ error: 'Lỗi truy vấn SELECT cơ sở dữ liệu' });
-          }
-
-          const selectedRecord = selectResults[0];
-          setTimeout(() => {
-            resetRequestKey(selectedRecord.id);
-          }, getRandomTimeout());
-          selectedRecord.module = 'reading';
-          selectedRecord.startDate = '26/01/2020';
-          selectedRecord.endDate = '26/01/2026';
-          res.json(selectedRecord);
-        });
+    let recordToProcess = findRecordToProcess(userData);
+    if (recordToProcess) {
+      recordToProcess.isProcess = 1;
+      recordToProcess.module = 'reading';
+      recordToProcess.moduleBackup = 'writing';
+      recordToProcess.startDate = '26/01/2020';
+      recordToProcess.endDate = '26/01/2026';
+      res.json(recordToProcess);
+    } else {
+      resetIsProcess(userData);
+      recordToProcess = findRecordToProcess(userData);
+      if (recordToProcess) {
+        recordToProcess.isProcess = 1;
+        recordToProcess.module = 'reading';
+        recordToProcess.moduleBackup = 'writing';
+        recordToProcess.startDate = '26/01/2020';
+        recordToProcess.endDate = '26/01/2026';
+        res.json(recordToProcess);
       } else {
-        connection.end();
         res.json(null);
       }
-    });
+      countRequest++;
+    }
   } catch (error) {
-    console.error('Lỗi kết nối: ' + error.stack);
-    res.status(500).json({ error: error.stack });
+    console.error('Lỗi xử lý: ' + error.stack);
+    res.status(500).json({ error: 'Lỗi xử lý dữ liệu' });
   }
 });
 
