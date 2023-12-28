@@ -56,6 +56,57 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
+app.get('/api/accounts', async (req, res) => {
+  try {
+    const isActive = req.query.isActive || 1;
+    const type = req.query.type || 'HCM';
+    const results = await queryWithRetry(
+      'SELECT * FROM accounts WHERE isActive = ? and type = ? ORDER BY sort',
+      [isActive, type]
+    );
+
+    const processedResults = results.map(row => ({
+      ...row,
+      isActive: row.isActive === 1 ? true : false,
+    }));
+
+    res.json(processedResults);
+  } catch (error) {
+    console.error('Lỗi truy vấn: ' + error.stack);
+    res.status(200).json({ error: 'Lỗi truy vấn cơ sở dữ liệu' });
+  }
+});
+
+app.get('/api/accounts/update', async (req, res) => {
+  const { id, isActive } = req.query;
+
+  if (!id || !isActive || (isActive !== '0' && isActive !== '1')) {
+    return res.status(200).json({ error: 'Thiếu tham số hoặc tham số không hợp lệ' });
+  }
+
+  try {
+    const connection = mysql.createConnection(dbConfig);
+
+    connection.query('UPDATE accounts SET isActive = ? WHERE id = ?', [isActive, id], (error, results) => {
+      connection.end();
+
+      if (error) {
+        console.error('Lỗi cập nhật: ' + error.stack);
+        res.status(200).json({ error: 'Lỗi cập nhật cơ sở dữ liệu' });
+      } else {
+        if (results.affectedRows === 1) {
+          res.json({ success: 'Cập nhật thành công' });
+        } else {
+          res.status(200).json({ error: 'Không tìm thấy người dùng với id đã cho' });
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Lỗi kết nối: ' + error.stack);
+    res.status(200).json({ error: 'Lỗi kết nối cơ sở dữ liệu' });
+  }
+});
+
 
 app.get('/api/users/update', async (req, res) => {
   const { id, isActive } = req.query;
